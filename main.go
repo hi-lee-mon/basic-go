@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 )
 
 type EchoRequest struct {
@@ -12,6 +13,11 @@ type EchoRequest struct {
 
 type CreateTodoRequest struct {
 	Title string `json:"title"`
+}
+
+type UpdateTodoRequest struct {
+	Title     string `json:"title"`
+	Completed *bool  `json:"completed"`
 }
 
 type Todo struct {
@@ -75,6 +81,7 @@ func main() {
 			// バリデーション
 			if req.Title == "" {
 				http.Error(w, "Title is required", http.StatusBadRequest)
+				return
 			}
 
 			// レスポンス作成
@@ -99,6 +106,102 @@ func main() {
 		}
 
 	})
+
+	http.HandleFunc("/todos/{id}", func(w http.ResponseWriter, r *http.Request) {
+		allowed := map[string]struct{}{
+			http.MethodGet: {},
+			http.MethodPut: {},
+		}
+		if _, ok := allowed[r.Method]; !ok {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+
+		// パスパラの取得と検証
+		idStr := r.PathValue("id")
+		if idStr == "" {
+			http.Error(w, "ID is required", http.StatusBadRequest)
+			return
+		}
+		todoID, err := strconv.Atoi(idStr)
+		if err != nil {
+			http.Error(w, "ID must be a number", http.StatusBadRequest)
+			return
+		}
+		/*
+			Get
+		*/
+		if r.Method == http.MethodGet {
+			todo := getTodoById(todoID)
+
+			if todo == nil {
+				http.Error(w, "Todo not found", http.StatusNotFound)
+				return
+			}
+
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(todo)
+		}
+
+		/*
+			Put
+		*/
+		if r.Method == http.MethodPut {
+			// リクエストの内容を構造体にデコード
+			var req UpdateTodoRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, "Bad request", http.StatusBadRequest)
+				return
+			}
+
+			// バリデーション
+			if req.Title == "" {
+				http.Error(w, "Title is required", http.StatusBadRequest)
+				return
+			}
+
+			if req.Completed == nil {
+				http.Error(w, "Completed is required", http.StatusBadRequest)
+				return
+			}
+
+			// 検索
+			todo := getTodoById(todoID)
+
+			if todo == nil {
+				http.Error(w, "Todo not found", http.StatusNotFound)
+				return
+			}
+
+			updatedTodo := Todo{
+				ID:        todo.ID,
+				Title:     req.Title,
+				Completed: *req.Completed,
+			}
+
+			// ストア更新
+			for i, t := range todos {
+				if t.ID == todoID {
+					todos[i] = updatedTodo
+					break
+				}
+			}
+
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(updatedTodo)
+		}
+	})
 	log.Println("server started at :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+func getTodoById(id int) *Todo {
+	for i, t := range todos {
+		if t.ID == id {
+			return &todos[i]
+		}
+	}
+	return nil
 }
