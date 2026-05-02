@@ -30,6 +30,26 @@ type Todo struct {
 var todos []Todo
 var nextID int = 1
 
+func getTodoById(id int) *Todo {
+	for i, t := range todos {
+		if t.ID == id {
+			return &todos[i]
+		}
+	}
+	return nil
+}
+
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"status": "ok",
+	})
+}
+
 func main() {
 	http.HandleFunc("/health", healthHandler)
 
@@ -186,24 +206,4 @@ func main() {
 	})
 	log.Println("server started at :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
-}
-
-func getTodoById(id int) *Todo {
-	for i, t := range todos {
-		if t.ID == id {
-			return &todos[i]
-		}
-	}
-	return nil
-}
-
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{
-		"status": "ok",
-	})
 }
