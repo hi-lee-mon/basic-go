@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"slices"
 	"strconv"
 )
 
@@ -57,6 +58,7 @@ func main() {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
+
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -120,8 +122,9 @@ func main() {
 
 	http.HandleFunc("/todos/{id}", func(w http.ResponseWriter, r *http.Request) {
 		allowed := map[string]struct{}{
-			http.MethodGet: {},
-			http.MethodPut: {},
+			http.MethodGet:    {},
+			http.MethodPut:    {},
+			http.MethodDelete: {},
 		}
 		if _, ok := allowed[r.Method]; !ok {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -202,6 +205,28 @@ func main() {
 
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(updatedTodo)
+		}
+
+		/*
+			Delete
+		*/
+		if r.Method == http.MethodDelete {
+			// 検索
+			todo := getTodoById(todoID)
+
+			if todo == nil {
+				http.Error(w, "Todo not found", http.StatusNotFound)
+				return
+			}
+
+			// ストア更新
+			index := slices.IndexFunc(todos, func(t Todo) bool {
+				return t.ID == todoID
+			})
+
+			todos = slices.Delete(todos, index, index+1)
+
+			w.WriteHeader(http.StatusNoContent)
 		}
 	})
 	log.Println("server started at :8080")
