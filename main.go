@@ -27,9 +27,8 @@ type Todo struct {
 	Completed bool   `json:"completed"`
 }
 
-// データストア（メモリ上）
 var todos []Todo
-var nextID int = 1
+var nextID = 1
 
 func getTodoById(id int) *Todo {
 	for i, t := range todos {
@@ -41,194 +40,133 @@ func getTodoById(id int) *Todo {
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+func echoHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var req EchoRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
+	_ = json.NewEncoder(w).Encode(req)
+}
+
+func listTodosHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{
-		"status": "ok",
+	_ = json.NewEncoder(w).Encode(todos)
+}
+
+func createTodoHandler(w http.ResponseWriter, r *http.Request) {
+	var req CreateTodoRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+	if req.Title == "" {
+		http.Error(w, "Title is required", http.StatusBadRequest)
+		return
+	}
+
+	newTodo := Todo{ID: nextID, Title: req.Title}
+	todos = append(todos, newTodo)
+	nextID++
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(newTodo)
+}
+
+func getTodoHandler(w http.ResponseWriter, r *http.Request) {
+	todoID, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "ID must be a number", http.StatusBadRequest)
+		return
+	}
+
+	todo := getTodoById(todoID)
+	if todo == nil {
+		http.Error(w, "Todo not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(todo)
+}
+
+func updateTodoHandler(w http.ResponseWriter, r *http.Request) {
+	todoID, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "ID must be a number", http.StatusBadRequest)
+		return
+	}
+
+	var req UpdateTodoRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+	if req.Title == "" {
+		http.Error(w, "Title is required", http.StatusBadRequest)
+		return
+	}
+	if req.Completed == nil {
+		http.Error(w, "Completed is required", http.StatusBadRequest)
+		return
+	}
+
+	todo := getTodoById(todoID)
+	if todo == nil {
+		http.Error(w, "Todo not found", http.StatusNotFound)
+		return
+	}
+
+	updated := Todo{ID: todo.ID, Title: req.Title, Completed: *req.Completed}
+	for i, t := range todos {
+		if t.ID == todoID {
+			todos[i] = updated
+			break
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(updated)
+}
+
+func deleteTodoHandler(w http.ResponseWriter, r *http.Request) {
+	todoID, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "ID must be a number", http.StatusBadRequest)
+		return
+	}
+
+	index := slices.IndexFunc(todos, func(t Todo) bool {
+		return t.ID == todoID
 	})
+	if index == -1 {
+		http.Error(w, "Todo not found", http.StatusNotFound)
+		return
+	}
+
+	todos = slices.Delete(todos, index, index+1)
+	// デフォルトは200になるので200以外の場合は明示的にステータスを設定する必要あり
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func main() {
-	http.HandleFunc("/health", healthHandler)
+	// Go 1.22から "メソッド /パス" の形式で登録できるようになり、マッチしないメソッドは自動で 405 Method Not Allowed を返す
+	mux := http.NewServeMux()
 
-	http.HandleFunc("/echo", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
+	mux.HandleFunc("GET /health", healthHandler)
+	mux.HandleFunc("POST /echo", echoHandler)
+	mux.HandleFunc("GET /todos", listTodosHandler)
+	mux.HandleFunc("POST /todos", createTodoHandler)
+	mux.HandleFunc("GET /todos/{id}", getTodoHandler)
+	mux.HandleFunc("PUT /todos/{id}", updateTodoHandler)
+	mux.HandleFunc("DELETE /todos/{id}", deleteTodoHandler)
 
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		var req EchoRequest
-		// bodyの内容をreqの構造体に代入する。値を変更するときはGoではポインタを使う必要がある。
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "Bad request", http.StatusBadRequest)
-			return
-		}
-		_ = json.NewEncoder(w).Encode(req)
-	})
-
-	http.HandleFunc("/todos", func(w http.ResponseWriter, r *http.Request) {
-		allowed := map[string]struct{}{
-			http.MethodGet:  {},
-			http.MethodPost: {},
-		}
-		if _, ok := allowed[r.Method]; !ok {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-
-		if r.Method == http.MethodPost {
-			// リクエストの内容を構造体にデコード
-			var req CreateTodoRequest
-			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				http.Error(w, "Bad request", http.StatusBadRequest)
-				return
-			}
-
-			// バリデーション
-			if req.Title == "" {
-				http.Error(w, "Title is required", http.StatusBadRequest)
-				return
-			}
-
-			// レスポンス作成
-			newTodo := Todo{
-				ID:        nextID,
-				Title:     req.Title,
-				Completed: false,
-			}
-
-			// ストア更新
-			todos = append(todos, newTodo)
-			nextID++
-
-			// ステータスコード201を返す
-			w.WriteHeader(http.StatusCreated)
-			// レスポンス返却
-			_ = json.NewEncoder(w).Encode(newTodo)
-		}
-
-		if r.Method == http.MethodGet {
-			_ = json.NewEncoder(w).Encode(todos)
-		}
-
-	})
-
-	http.HandleFunc("/todos/{id}", func(w http.ResponseWriter, r *http.Request) {
-		allowed := map[string]struct{}{
-			http.MethodGet:    {},
-			http.MethodPut:    {},
-			http.MethodDelete: {},
-		}
-		if _, ok := allowed[r.Method]; !ok {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-
-		// パスパラの取得と検証
-		idStr := r.PathValue("id")
-		if idStr == "" {
-			http.Error(w, "ID is required", http.StatusBadRequest)
-			return
-		}
-		todoID, err := strconv.Atoi(idStr)
-		if err != nil {
-			http.Error(w, "ID must be a number", http.StatusBadRequest)
-			return
-		}
-		/*
-			Get
-		*/
-		if r.Method == http.MethodGet {
-			todo := getTodoById(todoID)
-
-			if todo == nil {
-				http.Error(w, "Todo not found", http.StatusNotFound)
-				return
-			}
-
-			w.WriteHeader(http.StatusOK)
-			_ = json.NewEncoder(w).Encode(todo)
-		}
-
-		/*
-			Put
-		*/
-		if r.Method == http.MethodPut {
-			// リクエストの内容を構造体にデコード
-			var req UpdateTodoRequest
-			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				http.Error(w, "Bad request", http.StatusBadRequest)
-				return
-			}
-
-			// バリデーション
-			if req.Title == "" {
-				http.Error(w, "Title is required", http.StatusBadRequest)
-				return
-			}
-
-			if req.Completed == nil {
-				http.Error(w, "Completed is required", http.StatusBadRequest)
-				return
-			}
-
-			// 検索
-			todo := getTodoById(todoID)
-
-			if todo == nil {
-				http.Error(w, "Todo not found", http.StatusNotFound)
-				return
-			}
-
-			updatedTodo := Todo{
-				ID:        todo.ID,
-				Title:     req.Title,
-				Completed: *req.Completed,
-			}
-
-			// ストア更新
-			for i, t := range todos {
-				if t.ID == todoID {
-					todos[i] = updatedTodo
-					break
-				}
-			}
-
-			w.WriteHeader(http.StatusOK)
-			_ = json.NewEncoder(w).Encode(updatedTodo)
-		}
-
-		/*
-			Delete
-		*/
-		if r.Method == http.MethodDelete {
-			// 検索
-			todo := getTodoById(todoID)
-
-			if todo == nil {
-				http.Error(w, "Todo not found", http.StatusNotFound)
-				return
-			}
-
-			// ストア更新
-			index := slices.IndexFunc(todos, func(t Todo) bool {
-				return t.ID == todoID
-			})
-
-			todos = slices.Delete(todos, index, index+1)
-
-			w.WriteHeader(http.StatusNoContent)
-		}
-	})
 	log.Println("server started at :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":8080", mux))
 }
