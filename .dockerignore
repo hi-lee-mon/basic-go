@@ -1,0 +1,9 @@
+# COPY除外
+.git
+.gitignore
+Dockerfile
+.dockerignore
+.gitlab-ci.yml
+grammar
+main_test.go
+README.md
