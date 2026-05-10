@@ -1,6 +1,10 @@
 package main
 
 import (
+	"basic-go/controllers"
+	"basic-go/models"
+	"basic-go/repositories"
+	"basic-go/services"
 	"encoding/json"
 	"net/http"
 	"slices"
@@ -177,11 +181,18 @@ func deleteTodoHandler(w http.ResponseWriter, r *http.Request) {
 ************************************************/
 
 func main() {
-	router := gin.Default()
-	router.GET("/hello", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "pong",
-		})
-	})
-	router.Run("localhost:8080") // デフォルトで0.0.0.0:8080でリッスンします
+	items := []models.Item{
+		{ID: 1, Name: "商品1", Price: 1000, Description: "説明1", SoldOut: false},
+		{ID: 2, Name: "商品2", Price: 2000, Description: "説明2", SoldOut: true},
+		{ID: 3, Name: "商品3", Price: 3000, Description: "説明3", SoldOut: false},
+	}
+
+	itemRepository := repositories.NewItemMemoryRepository(items)
+	itemService := services.NewItemService(itemRepository)
+	itemController := controllers.NewItemController(itemService)
+
+	r := gin.Default()
+	r.GET("/items", itemController.FindAll)
+	r.GET("/items/:id", itemController.FindById)
+	r.Run("localhost:8080") // デフォルトで0.0.0.0:8080でリッスンします
 }
