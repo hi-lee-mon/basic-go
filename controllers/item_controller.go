@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"basic-go/dto"
 	"basic-go/services"
 	"net/http"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 type IItemController interface {
 	FindAll(ctx *gin.Context)
 	FindById(ctx *gin.Context)
+	Create(ctx *gin.Context)
 }
 
 type ItemController struct {
@@ -25,14 +27,17 @@ func (c *ItemController) FindAll(ctx *gin.Context) {
 	items, err := c.service.FindAll()
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected error"})
+		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"data": items})
+	return
 }
 
 func (c *ItemController) FindById(ctx *gin.Context) {
 	itemId, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid id"})
+		return
 	}
 	item, err := c.service.FindById(uint(itemId))
 	if err != nil {
@@ -41,6 +46,21 @@ func (c *ItemController) FindById(ctx *gin.Context) {
 			return
 		}
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected error"})
+		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"data": item})
+}
+
+func (c *ItemController) Create(ctx *gin.Context) {
+	var input dto.CreateItemInput
+	if err := ctx.ShouldBindBodyWithJSON(&input); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	newItem, err := c.service.Create(input)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected error"})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"data": newItem})
 }
