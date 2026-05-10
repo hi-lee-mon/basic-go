@@ -2,10 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"slices"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
 )
 
 type EchoRequest struct {
@@ -155,18 +156,32 @@ func deleteTodoHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// func main() {
+// 	// Go 1.22から "メソッド /パス" の形式で登録できるようになり、マッチしないメソッドは自動で 405 Method Not Allowed を返す
+// 	mux := http.NewServeMux()
+
+// 	mux.HandleFunc("GET /health", healthHandler)
+// 	mux.HandleFunc("POST /echo", echoHandler)
+// 	mux.HandleFunc("GET /todos", listTodosHandler)
+// 	mux.HandleFunc("POST /todos", createTodoHandler)
+// 	mux.HandleFunc("GET /todos/{id}", getTodoHandler)
+// 	mux.HandleFunc("PUT /todos/{id}", updateTodoHandler)
+// 	mux.HandleFunc("DELETE /todos/{id}", deleteTodoHandler)
+
+// 	log.Println("server started at :8080")
+// 	log.Fatal(http.ListenAndServe(":8080", mux))
+// }
+
+/***********************************************
+ここからGin
+************************************************/
+
 func main() {
-	// Go 1.22から "メソッド /パス" の形式で登録できるようになり、マッチしないメソッドは自動で 405 Method Not Allowed を返す
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("GET /health", healthHandler)
-	mux.HandleFunc("POST /echo", echoHandler)
-	mux.HandleFunc("GET /todos", listTodosHandler)
-	mux.HandleFunc("POST /todos", createTodoHandler)
-	mux.HandleFunc("GET /todos/{id}", getTodoHandler)
-	mux.HandleFunc("PUT /todos/{id}", updateTodoHandler)
-	mux.HandleFunc("DELETE /todos/{id}", deleteTodoHandler)
-
-	log.Println("server started at :8080")
-	log.Fatal(http.ListenAndServe(":8080", mux))
+	router := gin.Default()
+	router.GET("/hello", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "pong",
+		})
+	})
+	router.Run("localhost:8080") // デフォルトで0.0.0.0:8080でリッスンします
 }
