@@ -2,6 +2,7 @@ package main
 
 import (
 	"basic-go/controllers"
+	"basic-go/infra"
 	"basic-go/models"
 	"basic-go/repositories"
 	"basic-go/services"
@@ -181,6 +182,7 @@ func deleteTodoHandler(w http.ResponseWriter, r *http.Request) {
 ************************************************/
 
 func main() {
+	infra.Initialize()
 	items := []models.Item{
 		{ID: 1, Name: "商品1", Price: 1000, Description: "説明1", SoldOut: false},
 		{ID: 2, Name: "商品2", Price: 2000, Description: "説明2", SoldOut: true},
