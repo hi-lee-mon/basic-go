@@ -4,6 +4,8 @@ import (
 	"basic-go/models"
 	"basic-go/msg"
 	"errors"
+
+	"gorm.io/gorm"
 )
 
 type IItemRepository interface {
@@ -63,4 +65,41 @@ func (r *ItemMemoryRepository) Delete(itemId uint) error {
 		}
 	}
 	return errors.New("Item not found")
+}
+
+type ItemRepository struct {
+	db *gorm.DB
+}
+
+func NewItemRepository(db *gorm.DB) IItemRepository {
+	return &ItemRepository{db: db}
+}
+
+func (r *ItemRepository) FindAll() (*[]models.Item, error) {
+	var items []models.Item
+	if err := r.db.Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return &items, nil
+}
+
+func (r *ItemRepository) FindById(itemId uint) (*models.Item, error) {
+
+	return nil, nil
+}
+
+func (r *ItemRepository) Create(newItem models.Item) (*models.Item, error) {
+	result := r.db.Create(&newItem)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &newItem, nil
+}
+
+func (r *ItemRepository) Update(updateItem models.Item) (*models.Item, error) {
+	return nil, nil
+}
+
+func (r *ItemRepository) Delete(itemId uint) error {
+	return nil
 }
