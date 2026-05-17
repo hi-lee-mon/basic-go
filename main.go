@@ -13,6 +13,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type EchoRequest struct {
@@ -182,20 +183,15 @@ func deleteTodoHandler(w http.ResponseWriter, r *http.Request) {
 ここからGin
 ************************************************/
 
-func main() {
+func setupRouter(db *gorm.DB) *gin.Engine {
 	// items := []models.Item{
 	// 	{ID: 1, Name: "商品1", Price: 1000, Description: "説明1", SoldOut: false},
 	// 	{ID: 2, Name: "商品2", Price: 2000, Description: "説明2", SoldOut: true},
 	// 	{ID: 3, Name: "商品3", Price: 3000, Description: "説明3", SoldOut: false},
 	// }
 
-	// itemRepository := repositories.NewItemMemoryRepository(items)
-
-	// 全体設定
-	infra.Initialize()
-	db := infra.SetupDB()
-
 	// DIコンテナの構築
+	// itemRepository := repositories.NewItemMemoryRepository(items)
 	itemRepository := repositories.NewItemRepository(db)
 	itemService := services.NewItemService(itemRepository)
 	itemController := controllers.NewItemController(itemService)
@@ -224,6 +220,16 @@ func main() {
 	itemRouterWithAuth.POST("", itemController.Create)
 	itemRouterWithAuth.PUT("/:id", itemController.Update)
 	itemRouterWithAuth.DELETE("/:id", itemController.Delete)
+
+	return r
+}
+
+func main() {
+	// 全体設定
+	infra.Initialize()
+	db := infra.SetupDB()
+	// DBのDIができるように分離
+	r := setupRouter(db)
 
 	// デフォルトで0.0.0.0:8080でリッスン
 	r.Run("localhost:8080")

@@ -1,63 +1,97 @@
 package main
 
 import (
+	"basic-go/infra"
+	"basic-go/src/models"
 	"encoding/json"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
+
+	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
+	"github.com/stretchr/testify/assert"
+	"gorm.io/gorm"
 )
 
-func TestHealth(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name            string
-		method          string
-		wantStatus      int
-		wantContentType string
-		wantJSONStatus  string
-	}{
-		{
-			name:            "GET returns ok",
-			method:          http.MethodGet,
-			wantStatus:      http.StatusOK,
-			wantContentType: "application/json",
-			wantJSONStatus:  "ok",
-		},
-		{
-			name:       "POST is not allowed",
-			method:     http.MethodPost,
-			wantStatus: http.StatusMethodNotAllowed,
-		},
+// TestMainとすることでvitestのbeforeAllの動きをする
+func TestMain(m *testing.M) {
+	// テストが実行される前に一度だけ必ず.env.testファイルを読み込む
+	if err := godotenv.Load("./.env.test"); err != nil {
+		log.Fatal("Error loading .env.test file")
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			req := httptest.NewRequest(tt.method, "/health", nil)
-			rr := httptest.NewRecorder()
+	// 全テストを実行
+	code := m.Run()
+	// テストが完了したら終了
+	os.Exit(code)
+}
 
-			healthHandler(rr, req)
-
-			if rr.Code != tt.wantStatus {
-				t.Fatalf("status = %d, want %d", rr.Code, tt.wantStatus)
-			}
-
-			if tt.wantContentType != "" {
-				if got := rr.Header().Get("Content-Type"); got != tt.wantContentType {
-					t.Fatalf("content-type = %q, want %q", got, tt.wantContentType)
-				}
-			}
-
-			if tt.wantJSONStatus != "" {
-				var body map[string]string
-				if err := json.NewDecoder(rr.Body).Decode(&body); err != nil {
-					t.Fatalf("decode body: %v", err)
-				}
-
-				if got := body["status"]; got != tt.wantJSONStatus {
-					t.Fatalf("body.status = %q, want %q", got, tt.wantJSONStatus)
-				}
-			}
-		})
+func setupTestData(db *gorm.DB) {
+	items := []models.Item{
+		{Name: "Test Item 1", Description: "This is a test item 1", Price: 10.0, SoldOut: false, UserId: 1},
+		{Name: "Test Item 2", Description: "This is a test item 2", Price: 20.0, SoldOut: true, UserId: 2},
 	}
+
+	users := []models.User{
+		{Email: "test1@example.com", Password: "password0001"},
+		{Email: "test2@example.com", Password: "password0002"},
+	}
+
+	for _, item := range items {
+		db.Create(&item)
+	}
+
+	for _, user := range users {
+		db.Create(&user)
+	}
+}
+
+/**
+* テスト用のテーブル作成、データ投入、ルーターのセットアップを行う関数
+* これを各テスト関数の冒頭で呼び出すことで、テストごとにクリーンな状態でテストを実行できるようになる
+**/
+func setup() *gin.Engine {
+	// DBの初期化(これが実行される前にTestMainで.env.testが読み込まれているため、テスト用のDBに接続される)
+	mockDb := infra.SetupDB()
+	// マイグレーションを実行してテスト用のテーブルを作成
+	mockDb.AutoMigrate(&models.Item{}, &models.User{})
+
+	// 作成したテーブルにデータをインサート
+	setupTestData(mockDb)
+
+	// テスト用のルーターをセットアップ
+	router := setupRouter(mockDb)
+
+	return router
+}
+
+func TestFindAll(t *testing.T) {
+	/**
+	* Arrange
+	**/
+	// テスト用のルーターをセットアップ
+	router := setup()
+	// リクエストとレスポンスの記録
+	w := httptest.NewRecorder()
+	// リクエスト作成
+	req := httptest.NewRequest("GET", "/items", nil)
+
+	/**
+	* Act
+	**/
+	// リクエスト
+	router.ServeHTTP(w, req)
+	var res map[string][]models.Item
+	// レスポンスのレコード結果を変数resに書き込み
+	json.Unmarshal([]byte(w.Body.Bytes()), &res)
+
+	/**
+	* Assert
+	**/
+	// ステータスコードが200であることを確認
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, 2, len(res["data"]))
 }
