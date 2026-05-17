@@ -3,6 +3,7 @@ package main
 import (
 	"basic-go/infra"
 	"basic-go/src/controllers"
+	"basic-go/src/middlewares"
 	"basic-go/src/repositories"
 	"basic-go/src/services"
 	"encoding/json"
@@ -200,17 +201,19 @@ func main() {
 
 	// ルーティング定義
 	r := gin.Default()
+	withAuth := r.Group("", middlewares.AuthMiddleware(authService))
 	itemRouter := r.Group("/items")
+	itemRouterWithAuth := withAuth.Group("/items") // 認証ミドルウェアを適用
 	authRouter := r.Group("/auth")
 
 	authRouter.POST("/signup", authController.Signup)
 	authRouter.POST("/login", authController.Login)
 
 	itemRouter.GET("", itemController.FindAll)
-	itemRouter.GET("/:id", itemController.FindById)
-	itemRouter.POST("", itemController.Create)
-	itemRouter.PUT("/:id", itemController.Update)
-	itemRouter.DELETE("/:id", itemController.Delete)
+	itemRouterWithAuth.GET("/:id", itemController.FindById)
+	itemRouterWithAuth.POST("", itemController.Create)
+	itemRouterWithAuth.PUT("/:id", itemController.Update)
+	itemRouterWithAuth.DELETE("/:id", itemController.Delete)
 
 	r.Run("localhost:8080") // デフォルトで0.0.0.0:8080でリッスンします
 }

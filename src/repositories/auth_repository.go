@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"basic-go/src/models"
+	"errors"
 
 	"gorm.io/gorm"
 )
@@ -33,7 +34,7 @@ func (r *AuthRepository) FindUserByEmail(email string) (*models.User, error) {
 	result := r.db.First(&user, "email = ?", email)
 	if result.Error != nil {
 		if result.Error.Error() == "record not found" {
-			return nil, nil // ユーザーが見つからない場合はnilを返す
+			return nil, errors.New("user not found") // ユーザーが見つからない場合はnilを返す
 		}
 		return nil, result.Error
 	}

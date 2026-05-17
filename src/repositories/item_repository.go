@@ -8,7 +8,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type IItemRepository interface {
+type IItemMemoryRepository interface {
 	FindAll() (*[]models.Item, error)
 	FindById(itemId uint) (*models.Item, error)
 	Create(newItem models.Item) (*models.Item, error)
@@ -24,7 +24,7 @@ type ItemMemoryRepository struct {
 // IFで定義したitems構造体をレスポンスする
 // このitems構造体のメソッドが実装の実体であり、リポジトリの利用者であるserviceは
 // メソッドの引数と戻り値だけを知ることになる
-func NewItemMemoryRepository(items []models.Item) IItemRepository {
+func NewItemMemoryRepository(items []models.Item) IItemMemoryRepository {
 	return &ItemMemoryRepository{items: items}
 }
 
@@ -67,6 +67,16 @@ func (r *ItemMemoryRepository) Delete(itemId uint) error {
 	return errors.New("Item not found")
 }
 
+// == DB Repository ==
+
+type IItemRepository interface {
+	FindAll() (*[]models.Item, error)
+	FindById(itemId uint, userId uint) (*models.Item, error)
+	Create(newItem models.Item) (*models.Item, error)
+	Update(updateItem models.Item) (*models.Item, error)
+	Delete(itemId uint, userId uint) error
+}
+
 type ItemRepository struct {
 	db *gorm.DB
 }
@@ -84,9 +94,9 @@ func (r *ItemRepository) FindAll() (*[]models.Item, error) {
 	return &items, nil
 }
 
-func (r *ItemRepository) FindById(itemId uint) (*models.Item, error) {
+func (r *ItemRepository) FindById(itemId uint, userId uint) (*models.Item, error) {
 	var item models.Item
-	result := r.db.First(&item, itemId)
+	result := r.db.First(&item, "id = ? AND user_id = ?", itemId, userId)
 	if result.Error != nil {
 		if result.Error.Error() == "record not found" {
 			return nil, errors.New("Item not found")
@@ -112,9 +122,9 @@ func (r *ItemRepository) Update(updateItem models.Item) (*models.Item, error) {
 	return &updateItem, nil
 }
 
-func (r *ItemRepository) Delete(itemId uint) error {
+func (r *ItemRepository) Delete(itemId uint, userId uint) error {
 	// 存在確認
-	deleteItem, err := r.FindById(itemId)
+	deleteItem, err := r.FindById(itemId, userId)
 	if err != nil {
 		return err
 	}
