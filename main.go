@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -182,8 +183,6 @@ func deleteTodoHandler(w http.ResponseWriter, r *http.Request) {
 ************************************************/
 
 func main() {
-	infra.Initialize()
-	db := infra.SetupDB()
 	// items := []models.Item{
 	// 	{ID: 1, Name: "商品1", Price: 1000, Description: "説明1", SoldOut: false},
 	// 	{ID: 2, Name: "商品2", Price: 2000, Description: "説明2", SoldOut: true},
@@ -191,6 +190,12 @@ func main() {
 	// }
 
 	// itemRepository := repositories.NewItemMemoryRepository(items)
+
+	// 全体設定
+	infra.Initialize()
+	db := infra.SetupDB()
+
+	// DIコンテナの構築
 	itemRepository := repositories.NewItemRepository(db)
 	itemService := services.NewItemService(itemRepository)
 	itemController := controllers.NewItemController(itemService)
@@ -201,7 +206,12 @@ func main() {
 
 	// ルーティング定義
 	r := gin.Default()
+	// CORSミドルウェアを追加
+	r.Use(cors.Default())
+
+	// 認証ミドルウェアを適用するルートグループを作成
 	withAuth := r.Group("", middlewares.AuthMiddleware(authService))
+
 	itemRouter := r.Group("/items")
 	itemRouterWithAuth := withAuth.Group("/items") // 認証ミドルウェアを適用
 	authRouter := r.Group("/auth")
@@ -215,5 +225,6 @@ func main() {
 	itemRouterWithAuth.PUT("/:id", itemController.Update)
 	itemRouterWithAuth.DELETE("/:id", itemController.Delete)
 
-	r.Run("localhost:8080") // デフォルトで0.0.0.0:8080でリッスンします
+	// デフォルトで0.0.0.0:8080でリッスン
+	r.Run("localhost:8080")
 }
