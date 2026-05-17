@@ -1,10 +1,10 @@
 package main
 
 import (
-	"basic-go/controllers"
 	"basic-go/infra"
-	"basic-go/repositories"
-	"basic-go/services"
+	"basic-go/src/controllers"
+	"basic-go/src/repositories"
+	"basic-go/src/services"
 	"encoding/json"
 	"net/http"
 	"slices"

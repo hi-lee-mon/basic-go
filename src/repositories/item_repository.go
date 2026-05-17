@@ -1,8 +1,8 @@
 package repositories
 
 import (
-	"basic-go/models"
-	"basic-go/msg"
+	"basic-go/src/models"
+	"basic-go/src/msg"
 	"errors"
 
 	"gorm.io/gorm"
@@ -77,15 +77,23 @@ func NewItemRepository(db *gorm.DB) IItemRepository {
 
 func (r *ItemRepository) FindAll() (*[]models.Item, error) {
 	var items []models.Item
-	if err := r.db.Find(&items).Error; err != nil {
-		return nil, err
+	result := r.db.Find(&items)
+	if result.Error != nil {
+		return nil, result.Error
 	}
 	return &items, nil
 }
 
 func (r *ItemRepository) FindById(itemId uint) (*models.Item, error) {
-
-	return nil, nil
+	var item models.Item
+	result := r.db.First(&item, itemId)
+	if result.Error != nil {
+		if result.Error.Error() == "record not found" {
+			return nil, errors.New("Item not found")
+		}
+		return nil, result.Error
+	}
+	return &item, nil
 }
 
 func (r *ItemRepository) Create(newItem models.Item) (*models.Item, error) {
@@ -97,9 +105,22 @@ func (r *ItemRepository) Create(newItem models.Item) (*models.Item, error) {
 }
 
 func (r *ItemRepository) Update(updateItem models.Item) (*models.Item, error) {
-	return nil, nil
+	result := r.db.Save(&updateItem)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &updateItem, nil
 }
 
 func (r *ItemRepository) Delete(itemId uint) error {
+	// 存在確認
+	deleteItem, err := r.FindById(itemId)
+	if err != nil {
+		return err
+	}
+	result := r.db.Delete(&deleteItem)
+	if result.Error != nil {
+		return result.Error
+	}
 	return nil
 }

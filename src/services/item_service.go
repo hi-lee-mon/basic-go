@@ -1,9 +1,9 @@
 package services
 
 import (
-	"basic-go/dto"
-	"basic-go/models"
-	"basic-go/repositories"
+	"basic-go/src/dto"
+	"basic-go/src/models"
+	"basic-go/src/repositories"
 )
 
 type IItemService interface {

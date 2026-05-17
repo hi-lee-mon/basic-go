@@ -2,7 +2,7 @@ package main
 
 import (
 	"basic-go/infra"
-	"basic-go/models"
+	"basic-go/src/models"
 )
 
 func main() {

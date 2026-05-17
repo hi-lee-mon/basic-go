@@ -1,8 +1,8 @@
 package controllers
 
 import (
-	"basic-go/dto"
-	"basic-go/services"
+	"basic-go/src/dto"
+	"basic-go/src/services"
 	"net/http"
 	"strconv"
 
