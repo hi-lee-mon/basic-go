@@ -203,13 +203,14 @@ func main() {
 	itemRouter := r.Group("/items")
 	authRouter := r.Group("/auth")
 
+	authRouter.POST("/signup", authController.Signup)
+	authRouter.POST("/login", authController.Login)
+
 	itemRouter.GET("", itemController.FindAll)
 	itemRouter.GET("/:id", itemController.FindById)
 	itemRouter.POST("", itemController.Create)
 	itemRouter.PUT("/:id", itemController.Update)
 	itemRouter.DELETE("/:id", itemController.Delete)
-
-	authRouter.POST("/signup", authController.Signup)
 
 	r.Run("localhost:8080") // デフォルトで0.0.0.0:8080でリッスンします
 }
