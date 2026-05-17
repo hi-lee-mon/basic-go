@@ -2,7 +2,10 @@ package main
 
 import (
 	"basic-go/infra"
+	"basic-go/src/dto"
 	"basic-go/src/models"
+	"basic-go/src/services"
+	"bytes"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -94,4 +97,52 @@ func TestFindAll(t *testing.T) {
 	// ステータスコードが200であることを確認
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, 2, len(res["data"]))
+}
+
+func TestCreate(t *testing.T) {
+	// Arrange
+	router := setup()
+	w := httptest.NewRecorder()
+	token, err := services.CreateToken(1, "test1@example.com") // ユーザーID 1のトークンを作成
+	assert.Equal(t, err, nil)
+
+	createItemInput := dto.CreateItemInput{
+		Name:        "New Test Item",
+		Description: "This is a new test item",
+		Price:       30.0,
+	}
+
+	reqBody, _ := json.Marshal(createItemInput)
+	req := httptest.NewRequest("POST", "/items", bytes.NewBuffer(reqBody))
+	req.Header.Set("Authorization", "Bearer "+*token)
+
+	// Act
+	var res map[string]models.Item
+	router.ServeHTTP(w, req)
+
+	// Assert
+	json.Unmarshal([]byte(w.Body.Bytes()), &res)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, uint(3), res["data"].ID)
+}
+
+func TestCreateUnAuthorized(t *testing.T) {
+	// Arrange
+	router := setup()
+	w := httptest.NewRecorder()
+
+	createItemInput := dto.CreateItemInput{
+		Name:        "New Test Item",
+		Description: "This is a new test item",
+		Price:       30.0,
+	}
+
+	reqBody, _ := json.Marshal(createItemInput)
+	req := httptest.NewRequest("POST", "/items", bytes.NewBuffer(reqBody))
+
+	// Act
+	router.ServeHTTP(w, req)
+
+	// Assert
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }

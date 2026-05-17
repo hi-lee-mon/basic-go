@@ -12,7 +12,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func createToken(userId uint, email string) (*string, error) {
+func CreateToken(userId uint, email string) (*string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub":   userId, // JWTの標準クレームで、ユーザーIDを指定(subjectの略)
 		"email": email,
@@ -61,7 +61,7 @@ func (s *AuthService) Login(email, password string) (*string, error) {
 		// 404
 		return nil, errors.New("invalid email or password")
 	}
-	return createToken(foundUser.ID, foundUser.Email)
+	return CreateToken(foundUser.ID, foundUser.Email)
 }
 
 func (s *AuthService) GetUserFromToken(tokenString string) (*models.User, error) {
